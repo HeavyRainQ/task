@@ -1,0 +1,83 @@
+- name: task
+  hosts: host2
+  become: yes
+
+  tasks:
+    - name: install nginx
+      apt:
+        name: nginx
+        state: latest
+
+    - name: copy config file
+      template:
+        src=./templates/domain.conf
+        dest=/etc/nginx/vhosts
+
+    - name: add php repos
+      apt_repository:
+        repo: ppa:ondrej/php
+        state: present
+
+    - name: install php-fpm and php-modules
+      apt:
+        name:
+          - php8.2
+          - php8.2-fpm
+          - php8.2-mysqli
+          - php8.2-curl
+
+    - name: cp php-fpm config
+      template:
+        src=./templates/domain-fpm.conf
+        dest=/etc/php/8.2/fpm/pool.d/
+
+    - name: update packages
+      apt:
+        name: "*"
+        state: latest
+
+    - name: install git
+      apt:
+        name: git
+        state: latest
+
+    - name: git clone
+      git:
+        repo: https://github.com/laravel/laravel.git
+        dest: /var/www/html/task/
+
+    - name: install composer
+      apt:
+        name: composer
+        state: latest
+
+#    - name: composer job
+#      community.general.composer
+#      command: install
+#      working_dir: /var/www/html/task/
+
+    - name: allow ports
+      ansible.builtin.iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_ports: 
+          - 22
+          - 80
+          - 443
+        ctstate: NEW
+        syn: match
+        jump: ACCEPT
+
+    - name: Add sudo ubuntu user
+      user:
+        name: ubuntu
+        groups: sudo
+        append: true
+        state: present
+        createhome: true
+
+    - name: sudo without password for ubuntu user
+      copy:
+        dest: /etc/sudoers.d/99-ubuntu-sudo-user
+        content: "ubuntu ALL=(ALL) NOPASSWD:ALL"
+        mode: 0440
